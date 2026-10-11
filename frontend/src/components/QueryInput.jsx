@@ -10,6 +10,10 @@ export default function QueryInput({
   isLoading,
   error,
   onClearError,
+  activeSource,
+  sources,
+  onSourceChange,
+  onManageSources,
 }) {
   const textareaRef = useRef(null);
 
@@ -27,9 +31,28 @@ export default function QueryInput({
   return (
     <div className="query-input-card">
       <div className="query-input-header">
-        <label htmlFor="sql-question-input" className="query-input-label">
-          Your question
-        </label>
+        <div>
+          <label htmlFor="sql-question-input" className="query-input-label">
+            Your question
+          </label>
+          <div className="active-source-control">
+            <span>Active data source</span>
+            <select
+              value={activeSource?.id || ""}
+              onChange={(event) => onSourceChange(event.target.value)}
+              aria-label="Active data source"
+            >
+              {sources.map((source) => (
+                <option key={source.id} value={source.id}>
+                  {source.name} {source.is_live ? "• Connected" : "• Schema only"}
+                </option>
+              ))}
+            </select>
+            <button type="button" className="source-manage-link" onClick={onManageSources}>
+              Manage Data Sources
+            </button>
+          </div>
+        </div>
         <span className="query-input-shortcut-hint">
           Press <strong>Enter</strong> to ask, <strong>Shift + Enter</strong> for new line
         </span>
@@ -51,6 +74,12 @@ export default function QueryInput({
           disabled={isLoading}
         />
       </div>
+
+      {activeSource && !activeSource.is_live && (
+        <div className="schema-only-notice">
+          SQL will be generated and validated against <strong>{activeSource.name}</strong>, then run against its stored sample records.
+        </div>
+      )}
 
       {error && (
         <div className="query-error-banner" role="alert">

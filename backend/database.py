@@ -1,6 +1,7 @@
 import os
 import re
 import urllib.parse
+from typing import Optional
 from dotenv import load_dotenv
 from sqlalchemy import create_engine, inspect, text
 from sqlalchemy.engine import Engine
@@ -22,6 +23,14 @@ default_engine = create_engine(
 
 # For backward compatibility
 engine = default_engine
+INTERNAL_QUERYAI_TABLES = {"queryai_schema_metadata", "queryai_schema_records"}
+
+
+def quote_identifier(identifier: str) -> str:
+    """Quote an identifier only after callers validate it against introspection."""
+    if not re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", identifier or ""):
+        raise ValueError("Invalid database identifier.")
+    return f'"{identifier}"'
 
 
 def validate_host(host: str) -> None:
@@ -132,13 +141,16 @@ def create_custom_engine(
     )
 
 
-def get_schema(target_engine: Engine = None) -> str:
+def get_schema(target_engine: Optional[Engine] = None) -> str:
     """
     Extracts human-readable schema text formatted for Gemini prompt.
     """
     eng = target_engine or default_engine
     inspector = inspect(eng)
-    tables = inspector.get_table_names(schema="public")
+    tables = [
+        table for table in inspector.get_table_names(schema="public")
+        if table not in INTERNAL_QUERYAI_TABLES
+    ]
     lines = []
 
     for table in tables:
@@ -159,13 +171,16 @@ def get_schema(target_engine: Engine = None) -> str:
     return "\n".join(lines)
 
 
-def get_structured_schema(target_engine: Engine = None) -> list:
+def get_structured_schema(target_engine: Optional[Engine] = None) -> list:
     """
     Extracts structured schema with tables, columns, types, pk, fk for UI inspector.
     """
     eng = target_engine or default_engine
     inspector = inspect(eng)
-    tables = inspector.get_table_names(schema="public")
+    tables = [
+        table for table in inspector.get_table_names(schema="public")
+        if table not in INTERNAL_QUERYAI_TABLES
+    ]
     structured = []
 
     for table in tables:
@@ -175,9 +190,13 @@ def get_structured_schema(target_engine: Engine = None) -> list:
 
         foreign_keys = inspector.get_foreign_keys(table, schema="public")
         fk_columns = set()
+        fk_targets = {}
         relationships = []
         for fk in foreign_keys:
             fk_columns.update(fk.get("constrained_columns", []))
+            referred_columns = fk.get("referred_columns", [])
+            for constrained_column, referred_column in zip(fk.get("constrained_columns", []), referred_columns):
+                fk_targets[constrained_column] = f"{fk.get('referred_table')}.{referred_column}"
             relationships.append(
                 f"Relationship: {table}.{fk['constrained_columns']} -> {fk['referred_table']}.{fk['referred_columns']}"
             )
@@ -188,6 +207,12 @@ def get_structured_schema(target_engine: Engine = None) -> list:
                 "type": str(col["type"]),
                 "primary_key": col["name"] in pks,
                 "foreign_key": col["name"] in fk_columns,
+                "foreign_key_target": fk_targets.get(col["name"]),
+                "required": not bool(col.get("nullable", True)),
+                "nullable": bool(col.get("nullable", True)),
+                "auto_generated": bool(col.get("autoincrement") is True or (col.get("default") and "nextval" in str(col["default"]))),
+                "unique": col["name"] in pks,
+                "check": None,
             }
             for col in columns
         ]
@@ -201,7 +226,7 @@ def get_structured_schema(target_engine: Engine = None) -> list:
     return structured
 
 
-def execute_readonly(sql: str, target_engine: Engine = None) -> dict:
+def execute_readonly(sql: str, target_engine: Optional[Engine] = None) -> dict:
     """
     Executes a read-only query on the specified database engine.
     Applies SET TRANSACTION READ ONLY and 5000ms statement timeout.
@@ -224,3 +249,44 @@ def execute_readonly(sql: str, target_engine: Engine = None) -> dict:
                 "rows": rows,
                 "truncated": truncated,
             }
+
+
+def _live_table(target_engine: Engine, table_name: str) -> tuple[dict, list[dict]]:
+    tables = get_structured_schema(target_engine)
+    table = next((item for item in tables if item["name"] == table_name), None)
+    if table is None:
+        raise ValueError(f"Table '{table_name}' was not found in the connected database.")
+    return table, tables
+
+
+def insert_live_row(target_engine: Engine, table_name: str, values: dict) -> dict:
+    table, _ = _live_table(target_engine, table_name)
+    columns = {column["name"] for column in table["columns"]}
+    unknown = set(values) - columns
+    if unknown:
+        raise ValueError(f"Unknown column(s): {', '.join(sorted(unknown))}")
+    quoted_table = quote_identifier(table_name)
+    if values:
+        names = list(values)
+        quoted_columns = ", ".join(quote_identifier(name) for name in names)
+        bind_names = [f"value_{index}" for index in range(len(names))]
+        bindings = ", ".join(f":{name}" for name in bind_names)
+        statement = text(
+            f"INSERT INTO {quoted_table} ({quoted_columns}) VALUES ({bindings}) RETURNING *"
+        )
+        params = dict(zip(bind_names, (values[name] for name in names)))
+    else:
+        statement = text(f"INSERT INTO {quoted_table} DEFAULT VALUES RETURNING *")
+        params = {}
+    with target_engine.begin() as connection:
+        row = connection.execute(statement, params).mappings().one()
+        return dict(row)
+
+
+def list_live_rows(target_engine: Engine, table_name: str, limit: int = 100, offset: int = 0) -> list[dict]:
+    _live_table(target_engine, table_name)
+    statement = text(
+        f"SELECT * FROM {quote_identifier(table_name)} LIMIT :limit OFFSET :offset"
+    )
+    with target_engine.connect() as connection:
+        return [dict(row) for row in connection.execute(statement, {"limit": min(limit, 100), "offset": max(offset, 0)}).mappings()]

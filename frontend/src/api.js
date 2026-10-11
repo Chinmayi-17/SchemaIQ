@@ -4,8 +4,9 @@ const API_BASE_URL =
 /**
  * Fetches the database schema from the backend.
  */
-export async function fetchSchema() {
-  const response = await fetch(`${API_BASE_URL}/api/schema`, {
+export async function fetchSchema(sourceId) {
+  const query = sourceId ? `?source_id=${encodeURIComponent(sourceId)}` : "";
+  const response = await fetch(`${API_BASE_URL}/api/schema${query}`, {
     method: "GET",
     headers: {
       "Content-Type": "application/json",
@@ -24,6 +25,89 @@ export async function fetchSchema() {
   }
 
   return response.json();
+}
+
+async function requestJson(path, options = {}) {
+  const response = await fetch(`${API_BASE_URL}${path}`, {
+    headers: { "Content-Type": "application/json", ...(options.headers || {}) },
+    ...options,
+  });
+
+  if (!response.ok) {
+    let message = `Request failed with status ${response.status}.`;
+    try {
+      const data = await response.json();
+      if (data.detail) message = typeof data.detail === "string" ? data.detail : JSON.stringify(data.detail);
+    } catch {
+      // Keep the status-based message when the server does not return JSON.
+    }
+    throw new Error(message);
+  }
+
+  return response.json();
+}
+
+export function fetchDataSources() {
+  return requestJson("/api/data-sources");
+}
+
+export function setActiveDataSource(sourceId) {
+  return requestJson("/api/data-sources/active", {
+    method: "POST",
+    body: JSON.stringify({ source_id: sourceId }),
+  });
+}
+
+export function testConnection(connection) {
+  return requestJson("/api/connections/test", {
+    method: "POST",
+    body: JSON.stringify(connection),
+  });
+}
+
+export function saveConnection(connection) {
+  return requestJson("/api/connections", {
+    method: "POST",
+    body: JSON.stringify(connection),
+  });
+}
+
+export function refreshConnection(connectionId) {
+  return requestJson(`/api/connections/${encodeURIComponent(connectionId)}/refresh`, {
+    method: "POST",
+  });
+}
+
+export function deleteConnection(connectionId) {
+  return requestJson(`/api/connections/${encodeURIComponent(connectionId)}`, {
+    method: "DELETE",
+  });
+}
+
+export function importSchema(payload) {
+  return requestJson("/api/schemas/import", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+export function deleteSchema(schemaId) {
+  return requestJson(`/api/schemas/${encodeURIComponent(schemaId)}`, {
+    method: "DELETE",
+  });
+}
+
+export function fetchTableRows(source, tableName, limit = 100, offset = 0) {
+  const category = source.category === "connection" ? "connections" : "schemas";
+  return requestJson(`/api/${category}/${encodeURIComponent(source.id)}/tables/${encodeURIComponent(tableName)}/rows?limit=${limit}&offset=${offset}`);
+}
+
+export function insertTableRow(source, tableName, values, confirmLiveInsert = false) {
+  const category = source.category === "connection" ? "connections" : "schemas";
+  return requestJson(`/api/${category}/${encodeURIComponent(source.id)}/tables/${encodeURIComponent(tableName)}/rows`, {
+    method: "POST",
+    body: JSON.stringify({ values, confirm_live_insert: confirmLiveInsert }),
+  });
 }
 
 /**
@@ -50,7 +134,7 @@ export async function checkHealth() {
  *   truncated?: boolean
  * }>}
  */
-export async function executeQuery(question) {
+export async function executeQuery(question, sourceId) {
   const startTime = performance.now();
 
   try {
@@ -59,7 +143,7 @@ export async function executeQuery(question) {
       headers: {
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ question }),
+      body: JSON.stringify({ question, source_id: sourceId || undefined }),
     });
 
     const durationMs = Math.round(performance.now() - startTime);

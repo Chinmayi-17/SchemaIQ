@@ -84,8 +84,9 @@ def run_tests():
     assert "customers" in data["sql"].lower()
     assert "orders" in data["sql"].lower()
     assert "students" not in data["sql"].lower()
-    assert data["execution_disabled"] is True
+    assert data["execution_disabled"] is False
     assert data["rows"] == []
+    assert data["source_type"] == "schema"
     print("[PASS] 5. Schema-aware generation on imported schema (no hallucinated tables, execution disabled):")
     print("       Generated SQL:", data["sql"].strip().replace("\n", " "))
 

@@ -15,6 +15,7 @@ from schema_parser import (
     parse_json_schema,
     get_demo_ecommerce_schema,
 )
+import sample_records
 
 
 class DataSourceManager:
@@ -29,6 +30,15 @@ class DataSourceManager:
         self._schemas: dict[str, dict] = {}
         self._active_source_id: str = "default"
         self._init_default_sources()
+        self._load_persisted_schemas()
+
+    def _load_persisted_schemas(self):
+        try:
+            for schema in sample_records.load_schema_metadata():
+                if schema["id"] not in self._schemas:
+                    self._schemas[schema["id"]] = schema
+        except Exception as error:
+            print(f"Warning: schema metadata storage unavailable: {str(error)[:120]}")
 
     def _init_default_sources(self):
         """
@@ -76,6 +86,7 @@ class DataSourceManager:
                 "is_demo": True,
                 "created_at": datetime.now(timezone.utc).isoformat(),
             }
+            sample_records.save_schema_metadata(self._schemas["demo-ecommerce"])
         except Exception as e:
             print(f"Warning: Failed to initialize demo ecommerce schema: {e}")
 
@@ -351,6 +362,7 @@ class DataSourceManager:
             "is_demo": False,
             "created_at": datetime.now(timezone.utc).isoformat(),
         }
+        sample_records.save_schema_metadata(self._schemas[schema_id])
 
         return self.get_schema_detail(schema_id)
 
@@ -410,6 +422,7 @@ class DataSourceManager:
             raise KeyError(f"Schema '{schema_id}' not found.")
 
         self._schemas.pop(schema_id)
+        sample_records.delete_schema_metadata(schema_id)
 
         if self._active_source_id == schema_id:
             self._active_source_id = "default"
@@ -491,6 +504,13 @@ class DataSourceManager:
         raise KeyError(
             f"Data source '{sid}' not found. Please select or configure a valid data source."
         )
+
+    def get_table(self, source_id: str, table_name: str) -> tuple[dict, dict]:
+        source = self.get_source(source_id)
+        table = next((item for item in source["tables"] if item["name"] == table_name), None)
+        if table is None:
+            raise KeyError(f"Table '{table_name}' not found in data source '{source['name']}'.")
+        return source, table
 
 
 # Singleton instance

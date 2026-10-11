@@ -1,6 +1,6 @@
 import re
 import traceback
-from typing import Optional, List, Dict, Any
+from typing import Optional, List, Dict, Any, Literal
 
 from fastapi import FastAPI, HTTPException, Query, Path
 from fastapi.middleware.cors import CORSMiddleware
@@ -10,7 +10,9 @@ from sqlalchemy.exc import SQLAlchemyError
 from database import get_schema, execute_readonly
 from data_sources import data_source_manager
 from sql_generator import generate_sql
-from sql_validator import validate_sql
+from sql_validator import validate_sql, validate_sql_references
+import database as database_module
+import sample_records
 
 app = FastAPI(title="QueryAI API", version="2.0.0")
 
@@ -39,7 +41,7 @@ class ConnectionTestRequest(BaseModel):
     database: str = Field(..., min_length=1, description="PostgreSQL database name")
     username: str = Field(..., min_length=1, description="Database user")
     password: str = Field(..., description="Database user password")
-    ssl_mode: str = Field("require", description="SSL connection mode")
+    ssl_mode: Literal["require", "verify-full", "prefer", "disable"] = Field("require", description="PostgreSQL SSL connection mode")
 
 
 class ConnectionRegisterRequest(BaseModel):
@@ -49,7 +51,7 @@ class ConnectionRegisterRequest(BaseModel):
     database: str = Field(..., min_length=1)
     username: str = Field(..., min_length=1)
     password: str = Field(...)
-    ssl_mode: str = Field("require")
+    ssl_mode: Literal["require", "verify-full", "prefer", "disable"] = Field("require")
 
 
 class SchemaImportRequest(BaseModel):
@@ -58,6 +60,7 @@ class SchemaImportRequest(BaseModel):
     sql_text: Optional[str] = None
     tables: Optional[List[Dict[str, Any]]] = None
     json_text: Optional[str] = None
+    file_name: Optional[str] = Field(None, max_length=255)
 
 
 class ActiveSourceRequest(BaseModel):
@@ -69,6 +72,11 @@ class QueryRequest(BaseModel):
     source_id: Optional[str] = None
     connection_id: Optional[str] = None
     schema_id: Optional[str] = None
+
+
+class RowInsertRequest(BaseModel):
+    values: Dict[str, Any] = Field(default_factory=dict)
+    confirm_live_insert: bool = False
 
 
 # ==========================================
@@ -247,6 +255,11 @@ def import_schema(req: SchemaImportRequest):
     Validates and parses the schema safely WITHOUT executing any SQL statements.
     """
     try:
+        if req.file_name and req.file_name.lower().rsplit(".", 1)[-1] not in {"sql", "json"}:
+            raise ValueError("Only .sql and .json schema files are supported.")
+        content = req.sql_text or req.json_text or ""
+        if len(content.encode("utf-8")) > 500_000:
+            raise ValueError("Schema file exceeds maximum allowed size (500KB).")
         schema_detail = data_source_manager.import_schema(
             name=req.name or "",
             source_type=req.source_type,
@@ -308,6 +321,76 @@ def delete_schema(schema_id: str = Path(...)):
 
 
 # ==========================================
+# TABLE DATA MANAGEMENT
+# ==========================================
+
+@app.post("/api/schemas/{schema_id}/tables/{table_name}/rows")
+def insert_schema_row(schema_id: str, table_name: str, request: RowInsertRequest):
+    try:
+        source, table = data_source_manager.get_table(schema_id, table_name)
+        if source["is_live"]:
+            raise HTTPException(status_code=400, detail="This endpoint is only for schema-only data sources.")
+        record = sample_records.insert_schema_record(schema_id, table, request.values)
+        return {"success": True, "message": "Record inserted successfully.", "record": record}
+    except HTTPException:
+        raise
+    except (KeyError, ValueError) as error:
+        raise HTTPException(status_code=400, detail=str(error))
+    except SQLAlchemyError:
+        raise HTTPException(status_code=503, detail="Sample record storage is unavailable.")
+
+
+@app.get("/api/schemas/{schema_id}/tables/{table_name}/rows")
+def get_schema_rows(schema_id: str, table_name: str, limit: int = Query(100, ge=1, le=100), offset: int = Query(0, ge=0)):
+    try:
+        source, table = data_source_manager.get_table(schema_id, table_name)
+        if source["is_live"]:
+            raise HTTPException(status_code=400, detail="This endpoint is only for schema-only data sources.")
+        rows = sample_records.list_schema_records(schema_id, table, limit, offset)
+        return {"success": True, "source_type": "schema", "table": table_name, "rows": rows, "limit": limit, "offset": offset}
+    except HTTPException:
+        raise
+    except (KeyError, ValueError) as error:
+        raise HTTPException(status_code=400, detail=str(error))
+    except SQLAlchemyError:
+        raise HTTPException(status_code=503, detail="Sample record storage is unavailable.")
+
+
+@app.post("/api/connections/{connection_id}/tables/{table_name}/rows")
+def insert_connection_row(connection_id: str, table_name: str, request: RowInsertRequest):
+    if not request.confirm_live_insert:
+        raise HTTPException(status_code=400, detail="Live database insertion requires explicit confirmation.")
+    try:
+        source, _ = data_source_manager.get_table(connection_id, table_name)
+        if not source["is_live"]:
+            raise HTTPException(status_code=400, detail="This endpoint is only for connected databases.")
+        record = database_module.insert_live_row(source["engine"], table_name, request.values)
+        return {"success": True, "message": "Record inserted successfully.", "record": record}
+    except HTTPException:
+        raise
+    except (KeyError, ValueError) as error:
+        raise HTTPException(status_code=400, detail=str(error))
+    except SQLAlchemyError:
+        raise HTTPException(status_code=400, detail="The database rejected this record.")
+
+
+@app.get("/api/connections/{connection_id}/tables/{table_name}/rows")
+def get_connection_rows(connection_id: str, table_name: str, limit: int = Query(100, ge=1, le=100), offset: int = Query(0, ge=0)):
+    try:
+        source, _ = data_source_manager.get_table(connection_id, table_name)
+        if not source["is_live"]:
+            raise HTTPException(status_code=400, detail="This endpoint is only for connected databases.")
+        rows = database_module.list_live_rows(source["engine"], table_name, limit, offset)
+        return {"success": True, "source_type": "connection", "table": table_name, "rows": rows, "limit": limit, "offset": offset}
+    except HTTPException:
+        raise
+    except (KeyError, ValueError) as error:
+        raise HTTPException(status_code=400, detail=str(error))
+    except SQLAlchemyError:
+        raise HTTPException(status_code=503, detail="The connected database is unavailable.")
+
+
+# ==========================================
 # SCHEMA INSPECTION (BACKWARD COMPATIBLE)
 # ==========================================
 
@@ -331,8 +414,10 @@ def get_current_schema(
             "is_live": source["is_live"],
             "category": source["category"],
         }
+    except KeyError as error:
+        raise HTTPException(status_code=404, detail=str(error))
     except Exception:
-        # Fallback to direct default get_schema if anything unexpected happens
+        # Keep the legacy no-argument endpoint available when the default source is unavailable.
         try:
             return {"schema": get_schema()}
         except Exception:
@@ -401,6 +486,7 @@ def query(request: QueryRequest):
 
         # 4. Validate generated SQL using SQLGlot AST
         safe_sql = validate_sql(generated["sql"])
+        validate_sql_references(safe_sql, source["tables"])
 
         # 5. Handle Live Database vs Imported Schema
         if source["is_live"]:
@@ -420,23 +506,21 @@ def query(request: QueryRequest):
                 "source_type": "connection",
             }
         else:
-            # Imported schema with no live DB: DO NOT FABRICATE RESULTS.
-            # Clearly explain that query was generated, but live execution requires a connected database.
+            result = sample_records.execute_schema_query(safe_sql, source["id"], source["tables"])
             return {
                 "success": True,
                 "question": request.question,
                 "sql": safe_sql,
                 "explanation": (
                     f"{generated['explanation']} "
-                    "(Query generated for imported schema. Live execution is disabled.)"
+                    "(Query executed against persisted sample records for the imported schema.)"
                 ),
-                "columns": [],
-                "rows": [],
-                "truncated": False,
-                "execution_disabled": True,
+                "columns": result["columns"],
+                "rows": result["rows"],
+                "truncated": result["truncated"],
+                "execution_disabled": False,
                 "execution_message": (
-                    f"SQL was successfully generated and syntax-validated for '{source['name']}'. "
-                    "Query execution is disabled because this schema does not have a live database connection."
+                    f"Query executed against stored sample records for '{source['name']}'."
                 ),
                 "source_id": source["id"],
                 "source_name": source["name"],

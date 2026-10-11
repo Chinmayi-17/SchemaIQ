@@ -10,7 +10,12 @@ import ResultsChart from "./components/ResultsChart";
 import RecentQueriesPanel from "./components/RecentQueriesPanel";
 import DashboardsView from "./components/DashboardsView";
 import DataSourcesView from "./components/DataSourcesView";
-import { executeQuery, fetchSchema } from "./api";
+import {
+  executeQuery,
+  fetchSchema,
+  fetchDataSources,
+  setActiveDataSource,
+} from "./api";
 
 const RECENT_QUERIES_KEY = "queryai_recent_queries";
 const SAVED_DASHBOARDS_KEY = "queryai_saved_dashboards";
@@ -37,7 +42,11 @@ export default function App() {
 
   // Schema state
   const [schemaRaw, setSchemaRaw] = useState("");
+  const [schemaTables, setSchemaTables] = useState([]);
   const [schemaStatus, setSchemaStatus] = useState("checking");
+  const [dataSources, setDataSources] = useState([]);
+  const [activeSourceId, setActiveSourceId] = useState("");
+  const [dataSourcesMode, setDataSourcesMode] = useState("connect");
 
   // Local storage state: Recent queries with fallback to prior key
   const [recentQueries, setRecentQueries] = useState(() => {
@@ -64,20 +73,49 @@ export default function App() {
   });
 
   // Check database connectivity and fetch schema on mount without executing queries
-  const loadSchema = useCallback(async () => {
+  const loadSchema = useCallback(async (sourceId = "") => {
     try {
       setSchemaStatus("checking");
-      const data = await fetchSchema();
+      const data = await fetchSchema(sourceId || undefined);
       setSchemaRaw(data.schema || "");
+      setSchemaTables(data.tables || []);
       setSchemaStatus("connected");
     } catch {
       setSchemaStatus("error");
     }
   }, []);
 
-  useEffect(() => {
-    loadSchema();
+  const loadDataSources = useCallback(async () => {
+    try {
+      const data = await fetchDataSources();
+      const combined = [...(data.connections || []), ...(data.schemas || [])];
+      setDataSources(combined);
+      const nextId = data.active_source_id || combined[0]?.id || "";
+      setActiveSourceId(nextId);
+      await loadSchema(nextId);
+    } catch {
+      setDataSources([]);
+      setSchemaStatus("error");
+    }
   }, [loadSchema]);
+
+  useEffect(() => {
+    loadDataSources();
+  }, [loadDataSources]);
+
+  const activeSource = dataSources.find((source) => source.id === activeSourceId) || null;
+
+  const handleSourceChange = async (sourceId) => {
+    setError(null);
+    setActiveSourceId(sourceId);
+    try {
+      await setActiveDataSource(sourceId);
+      await loadSchema(sourceId);
+      setActiveNav("query-editor");
+    } catch (err) {
+      setError(err.message || "Could not switch data source.");
+    }
+  };
 
   // Save recent queries to localStorage
   const persistRecentQueries = (newList) => {
@@ -122,7 +160,7 @@ export default function App() {
     setError(null);
 
     try {
-      const data = await executeQuery(trimmed);
+      const data = await executeQuery(trimmed, activeSourceId);
 
       const returnedSql = data.sql || "";
       const returnedExplanation = data.explanation || "";
@@ -237,6 +275,14 @@ export default function App() {
     setActiveNav("query-editor");
   };
 
+  const handleDataSourcesChanged = async (preferredSourceId) => {
+    await loadDataSources();
+    if (preferredSourceId) {
+      setActiveSourceId(preferredSourceId);
+      await handleSourceChange(preferredSourceId);
+    }
+  };
+
   // Check if current results support chart
   const hasChartableData =
     rows &&
@@ -268,6 +314,8 @@ export default function App() {
           /* SECTION 1: DEDICATED INTRODUCTORY LANDING PAGE */
           <HomeLandingView
             onStartQuerying={() => setActiveNav("query-editor")}
+            onConnectDatabase={() => { setDataSourcesMode("connect"); setActiveNav("data-sources"); }}
+            onImportSchema={() => { setDataSourcesMode("schema"); setActiveNav("data-sources"); }}
             schemaStatus={schemaStatus}
             onToggleMobileMenu={() => setMobileMenuOpen(!mobileMenuOpen)}
           />
@@ -290,8 +338,14 @@ export default function App() {
             ) : activeNav === "data-sources" ? (
               <DataSourcesView
                 schemaRaw={schemaRaw}
+                schemaTables={schemaTables}
                 schemaStatus={schemaStatus}
-                onRefreshSchema={loadSchema}
+                dataSources={dataSources}
+                initialMode={dataSourcesMode}
+                activeSourceId={activeSourceId}
+                onSourceChange={handleSourceChange}
+                onDataSourcesChanged={handleDataSourcesChanged}
+                onRefreshSchema={() => loadSchema(activeSourceId)}
                 onQueryTable={handleQueryTable}
               />
             ) : (
@@ -309,6 +363,10 @@ export default function App() {
                     isLoading={isLoading}
                     error={error}
                     onClearError={() => setError(null)}
+                    activeSource={activeSource}
+                    sources={dataSources}
+                    onSourceChange={handleSourceChange}
+                    onManageSources={() => setActiveNav("data-sources")}
                   />
 
                   {/* Generated SQL Panel */}

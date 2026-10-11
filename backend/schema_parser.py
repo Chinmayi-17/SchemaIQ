@@ -75,6 +75,10 @@ def parse_ddl_schema(sql_text: str) -> tuple[str, list]:
         columns = []
         relationships = []
         col_strs = []
+        table_definition = str(ast)
+        table_checks = [match.strip() for match in re.findall(r"CHECK\s*\(([^()]*(?:\([^)]*\)[^()]*)*)\)", table_definition, re.IGNORECASE)]
+        table_pk_match = re.search(r"PRIMARY\s+KEY\s*\(([^)]+)\)", table_definition, re.IGNORECASE)
+        table_unique_match = re.findall(r"UNIQUE\s*\(([^)]+)\)", table_definition, re.IGNORECASE)
 
         # Find column definitions
         for col_def in ast.find_all(exp.ColumnDef):
@@ -82,14 +86,22 @@ def parse_ddl_schema(sql_text: str) -> tuple[str, list]:
             if not col_name:
                 continue
 
+            raw_definition = str(col_def)
+            upper_definition = raw_definition.upper()
             col_type = str(col_def.kind) if col_def.kind else "TEXT"
             is_pk = (
                 bool(col_def.find(exp.PrimaryKeyColumnConstraint))
-                or "PRIMARY KEY" in str(col_def).upper()
+                or "PRIMARY KEY" in upper_definition
             )
+            auto_generated = (
+                col_type.upper().startswith("SERIAL")
+                or "IDENTITY" in upper_definition
+            )
+            check_match = re.search(r"CHECK\s*\((.+)\)", raw_definition, re.IGNORECASE)
 
             # Check column-level foreign key references
             fk_ref = col_def.find(exp.Reference)
+            foreign_key_target = None
             if fk_ref:
                 target_tbl_node = fk_ref.find(exp.Table)
                 target_tbl = target_tbl_node.name if target_tbl_node else ""
@@ -98,6 +110,7 @@ def parse_ddl_schema(sql_text: str) -> tuple[str, list]:
                 ]
                 target_col = target_col_nodes[0] if target_col_nodes else col_name
                 if target_tbl:
+                    foreign_key_target = f"{target_tbl}.{target_col}"
                     relationships.append(
                         f"Relationship: {table_name}.['{col_name}'] -> {target_tbl}.['{target_col}']"
                     )
@@ -106,6 +119,12 @@ def parse_ddl_schema(sql_text: str) -> tuple[str, list]:
                 "name": col_name,
                 "type": col_type,
                 "primary_key": is_pk,
+                "required": is_pk or "NOT NULL" in upper_definition,
+                "nullable": not (is_pk or "NOT NULL" in upper_definition),
+                "auto_generated": auto_generated,
+                "unique": "UNIQUE" in upper_definition,
+                "foreign_key_target": foreign_key_target,
+                "check": check_match.group(1).strip() if check_match else None,
             })
             col_strs.append(f"{col_name} ({col_type})")
 
@@ -125,6 +144,9 @@ def parse_ddl_schema(sql_text: str) -> tuple[str, list]:
                     rel_line = f"Relationship: {table_name}.['{src_col}'] -> {tgt_tbl}.['{tgt_col}']"
                     if rel_line not in relationships:
                         relationships.append(rel_line)
+                    for column in columns:
+                        if column["name"] == src_col:
+                            column["foreign_key_target"] = f"{tgt_tbl}.{tgt_col}"
             except Exception:
                 pass
 
@@ -134,6 +156,12 @@ def parse_ddl_schema(sql_text: str) -> tuple[str, list]:
         # Annotate columns with foreign_key flag based on detected relationships
         for col in columns:
             c_name = col["name"]
+            if table_pk_match and c_name in {item.strip().strip('"') for item in table_pk_match.group(1).split(',')}:
+                col["primary_key"] = True
+                col["required"] = True
+                col["nullable"] = False
+            if any(c_name in {item.strip().strip('"') for item in group.split(',')} for group in table_unique_match):
+                col["unique"] = True
             is_fk = any(f"['{c_name}']" in rel or f".{c_name} " in rel for rel in relationships)
             col["foreign_key"] = is_fk
 
@@ -145,6 +173,7 @@ def parse_ddl_schema(sql_text: str) -> tuple[str, list]:
             "name": table_name,
             "columns": columns,
             "relationships": relationships,
+            "checks": table_checks,
         })
 
     if not tables:
@@ -190,8 +219,13 @@ def parse_manual_schema(tables_data: list) -> tuple[str, list]:
                 "name": col_name,
                 "type": col_type,
                 "primary_key": is_pk,
+                "required": is_pk or bool(c.get("required", False)),
+                "nullable": not (is_pk or bool(c.get("required", False))),
+                "auto_generated": bool(c.get("auto_generated", False)),
+                "unique": bool(c.get("unique", False)),
                 "foreign_key": bool(fk_target and fk_target != "false"),
                 "foreign_key_target": fk_target if fk_target and fk_target != "false" else None,
+                "check": c.get("check"),
             })
             col_strs.append(f"{col_name} ({col_type})")
 
@@ -212,6 +246,7 @@ def parse_manual_schema(tables_data: list) -> tuple[str, list]:
             "name": name,
             "columns": columns,
             "relationships": relationships,
+            "checks": [],
         })
 
     if not tables:

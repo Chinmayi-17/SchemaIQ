@@ -13,6 +13,8 @@ import {
 
 export default function HomeLandingView({
   onStartQuerying,
+  onConnectDatabase,
+  onImportSchema,
   schemaStatus,
   onToggleMobileMenu,
 }) {
@@ -43,18 +45,17 @@ export default function HomeLandingView({
       {/* SECTION 1: HERO */}
       <section className="hero-section">
         <div className="hero-content">
-          <div className="hero-badge">
-            <Sparkles size={12} className="badge-sparkle-icon" />
-            <span>AI-POWERED DATABASE ANALYTICS</span>
-          </div>
+          <div className="hero-kicker">QUERYAI / NATURAL-LANGUAGE SQL</div>
 
           <h1 className="hero-title">
-            Your Data. Your Questions. Instant SQL.
+            Ask your database what matters.
           </h1>
 
           <p className="hero-description">
-            QueryAI transforms <span className="highlight-purple">natural-language</span> questions into SQL queries, allowing you to explore your <span className="highlight-purple">PostgreSQL</span> database without manually writing SQL.
+            QueryAI is for analysts, operators, and engineers who need answers from PostgreSQL without stopping to write every query by hand. Ask in plain language, inspect the SQL, and work from the real result.
           </p>
+
+          <div className="hero-next-step"><span className="hero-next-step-line" />Start with a question. QueryAI maps it to your selected schema, keeps the query read-only, then shows you what came back.</div>
 
           <div className="hero-cta-group">
             <button
@@ -68,11 +69,18 @@ export default function HomeLandingView({
 
             <button
               type="button"
-              className="btn-hero-secondary"
+              className="btn-hero-text"
               onClick={scrollToFeatures}
             >
-              <span>Explore Features</span>
+              <span>See how it works</span>
+              <ArrowRight size={14} />
             </button>
+          </div>
+
+          <div className="hero-setup-links">
+            <span>New workspace?</span>
+            <button type="button" onClick={onConnectDatabase}><Database size={14} />Connect a database</button>
+            <button type="button" onClick={onImportSchema}><Code2 size={14} />Import a schema</button>
           </div>
 
           {/* Trust Indicator */}
@@ -96,6 +104,17 @@ export default function HomeLandingView({
             </div>
           </div>
         </div>
+
+        <div className="hero-product-surface" aria-label="QueryAI workflow preview">
+          <div className="surface-topline"><span className="surface-label">LIVE QUERY WORKSPACE</span><span className="surface-source"><span className="status-dot online" /> Student Database</span></div>
+          <div className="surface-question"><span className="surface-step">01 / ASK</span><p>Show students whose CGPA is greater than 8</p><span className="surface-cursor" /></div>
+          <div className="surface-connector"><span /> QueryAI generates a read-only query <span /></div>
+          <div className="surface-sql"><div className="surface-step">02 / SQL GENERATED</div><pre>{`SELECT name, cgpa
+FROM students
+WHERE cgpa > 8
+LIMIT 100;`}</pre><div className="surface-safe"><ShieldCheck size={13} /> Syntax validated · SELECT only</div></div>
+          <div className="surface-result"><div className="surface-result-head"><span className="surface-step">03 / RESULT</span><span>6 rows returned</span></div><div className="surface-result-row surface-result-columns"><span>Name</span><span>CGPA</span><span>Semester</span></div><div className="surface-result-row"><span>Ishaan</span><strong>9.6</strong><span>6</span></div><div className="surface-result-row"><span>Aarav</span><strong>9.2</strong><span>4</span></div></div>
+        </div>
       </section>
 
       {/* SECTION 2: PRODUCT PREVIEW */}
@@ -103,7 +122,7 @@ export default function HomeLandingView({
         <div className="preview-card">
           <div className="preview-card-header">
             <div className="preview-header-left">
-              <span className="preview-pill">Product Workflow</span>
+              <span className="preview-kicker">Workflow detail</span>
               <span className="preview-header-title">How QueryAI Works</span>
             </div>
             <div className="preview-dots">
