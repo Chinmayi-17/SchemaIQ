@@ -21,7 +21,7 @@ def generate_sql(question: str, schema: str = None) -> dict:
     active_schema = schema if schema and schema.strip() else get_schema()
 
     prompt = f"""
-You are QueryAI, a PostgreSQL query-generation assistant.
+You are SchemaIQ, a PostgreSQL query-generation assistant.
 
 DATABASE SCHEMA:
 {active_schema}

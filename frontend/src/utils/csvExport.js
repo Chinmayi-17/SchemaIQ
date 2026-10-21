@@ -22,9 +22,9 @@ function escapeCsvValue(value) {
  * Exports data to CSV and triggers browser download.
  * @param {string[]} columns - Array of column names
  * @param {Array<Record<string, any>>} rows - Array of row objects
- * @param {string} [filename="queryai-results.csv"] - Target filename
+ * @param {string} [filename="schemaiq-results.csv"] - Target filename
  */
-export function exportToCsv(columns, rows, filename = "queryai-results.csv") {
+export function exportToCsv(columns, rows, filename = "schemaiq-results.csv") {
   if (!columns || columns.length === 0) {
     return;
   }

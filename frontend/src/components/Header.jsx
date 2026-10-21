@@ -11,17 +11,17 @@ export default function Header({
       case "dashboards":
         return {
           title: "Dashboards",
-          subtitle: "QueryAI — Saved analytics views & cards",
+          subtitle: "SchemaIQ — Saved analytics views & cards",
         };
       case "data-sources":
         return {
           title: "Data Sources",
-          subtitle: "QueryAI — PostgreSQL schema & relationships",
+          subtitle: "SchemaIQ — PostgreSQL schema & relationships",
         };
       default:
         return {
           title: "Ask a question",
-          subtitle: "QueryAI — PostgreSQL",
+          subtitle: "SchemaIQ — PostgreSQL",
         };
     }
   };

@@ -7,7 +7,9 @@ import {
   ArrowRight,
   Code2,
   Table as TableIcon,
-  CheckCircle2,
+  History,
+  LayoutDashboard,
+  ChartColumn,
   Menu,
 } from "lucide-react";
 
@@ -39,23 +41,23 @@ export default function HomeLandingView({
             <Menu size={20} />
           </button>
         )}
-        <div className="landing-mobile-brand">QueryAI</div>
+        <div className="landing-mobile-brand">SchemaIQ</div>
       </div>
 
       {/* SECTION 1: HERO */}
       <section className="hero-section">
         <div className="hero-content">
-          <div className="hero-kicker">QUERYAI / NATURAL-LANGUAGE SQL</div>
+          <div className="hero-kicker">SCHEMAIQ / NATURAL-LANGUAGE SQL</div>
 
           <h1 className="hero-title">
-            Ask your database what matters.
+            Your data has answers. Ask better questions.
           </h1>
 
           <p className="hero-description">
-            QueryAI is for analysts, operators, and engineers who need answers from PostgreSQL without stopping to write every query by hand. Ask in plain language, inspect the SQL, and work from the real result.
+            Explore PostgreSQL in plain language. Review every generated query, compare results, and save useful views without losing sight of the SQL.
           </p>
 
-          <div className="hero-next-step"><span className="hero-next-step-line" />Start with a question. QueryAI maps it to your selected schema, keeps the query read-only, then shows you what came back.</div>
+          <div className="hero-next-step"><span className="hero-next-step-line" />Start with a question. SchemaIQ grounds it in your selected schema, generates a read-only query, and returns results you can inspect.</div>
 
           <div className="hero-cta-group">
             <button
@@ -105,10 +107,10 @@ export default function HomeLandingView({
           </div>
         </div>
 
-        <div className="hero-product-surface" aria-label="QueryAI workflow preview">
+        <div className="hero-product-surface" aria-label="SchemaIQ workflow preview">
           <div className="surface-topline"><span className="surface-label">LIVE QUERY WORKSPACE</span><span className="surface-source"><span className="status-dot online" /> Student Database</span></div>
           <div className="surface-question"><span className="surface-step">01 / ASK</span><p>Show students whose CGPA is greater than 8</p><span className="surface-cursor" /></div>
-          <div className="surface-connector"><span /> QueryAI generates a read-only query <span /></div>
+          <div className="surface-connector"><span /> SchemaIQ generates a read-only query <span /></div>
           <div className="surface-sql"><div className="surface-step">02 / SQL GENERATED</div><pre>{`SELECT name, cgpa
 FROM students
 WHERE cgpa > 8
@@ -123,7 +125,7 @@ LIMIT 100;`}</pre><div className="surface-safe"><ShieldCheck size={13} /> Syntax
           <div className="preview-card-header">
             <div className="preview-header-left">
               <span className="preview-kicker">Workflow detail</span>
-              <span className="preview-header-title">How QueryAI Works</span>
+              <span className="preview-header-title">How SchemaIQ Works</span>
             </div>
             <div className="preview-dots">
               <span className="window-dot red" />
@@ -225,7 +227,7 @@ LIMIT 100;`}</code>
             Everything you need to query smarter
           </h2>
           <p className="section-sub-heading">
-            Enterprise-grade translation with full query safety and zero manual SQL required.
+            Go from a plain-language question to results you can review, explore, and reuse.
           </p>
         </div>
 
@@ -273,6 +275,36 @@ LIMIT 100;`}</code>
               Download query results as CSV for further analysis.
             </p>
           </div>
+
+          <div className="feature-card">
+            <div className="feature-icon-wrapper">
+              <History size={20} className="feature-icon" />
+            </div>
+            <h3 className="feature-title">Pick Up Where You Left Off</h3>
+            <p className="feature-description">
+              Reopen recent questions with their generated SQL and results ready to review.
+            </p>
+          </div>
+
+          <div className="feature-card">
+            <div className="feature-icon-wrapper">
+              <LayoutDashboard size={20} className="feature-icon" />
+            </div>
+            <h3 className="feature-title">Save Useful Queries</h3>
+            <p className="feature-description">
+              Keep important query results in your personal dashboard for quick access.
+            </p>
+          </div>
+
+          <div className="feature-card">
+            <div className="feature-icon-wrapper">
+              <ChartColumn size={20} className="feature-icon" />
+            </div>
+            <h3 className="feature-title">See Results Your Way</h3>
+            <p className="feature-description">
+              Switch between a detailed table and a quick chart when your results support it.
+            </p>
+          </div>
         </div>
       </section>
 
@@ -298,7 +330,7 @@ LIMIT 100;`}</code>
             <div className="workflow-number">02</div>
             <h3 className="workflow-step-title">Generate SQL</h3>
             <p className="workflow-step-desc">
-              QueryAI uses Gemini to generate a PostgreSQL query based on the available database schema.
+              SchemaIQ uses Gemini to generate a PostgreSQL query based on the available database schema.
             </p>
           </div>
 
@@ -334,7 +366,7 @@ LIMIT 100;`}</code>
 
       {/* SECTION 6: FOOTER */}
       <footer className="landing-footer">
-        <div className="footer-brand-title">QueryAI</div>
+        <div className="footer-brand-title">SchemaIQ</div>
         <div className="footer-tagline">
           Natural-language querying for PostgreSQL.
         </div>

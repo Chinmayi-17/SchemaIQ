@@ -1,8 +1,8 @@
-# QueryAI
+# SchemaIQ
 
 ### AI-Powered Natural Language to SQL Generator
 
-QueryAI is a full-stack web application that converts everyday English questions into SQL queries using Google Gemini. It helps users explore PostgreSQL database structures, understand generated SQL, and view query results when a live database is connected.
+SchemaIQ is a full-stack web application that converts everyday English questions into SQL queries using Google Gemini. It helps users explore PostgreSQL database structures, understand generated SQL, and view query results when a live database is connected.
 
 ## Features
 
@@ -34,7 +34,7 @@ QueryAI is a full-stack web application that converts everyday English questions
 2. Select the data source in the Query Editor.
 3. Ask a question in natural language.
 4. Gemini generates SQL using the selected schema.
-5. QueryAI validates the SQL and provides an explanation.
+5. SchemaIQ validates the SQL and provides an explanation.
 6. If a live database is selected, supported read-only queries can return actual results.
 
 ## Getting Started
@@ -144,7 +144,7 @@ Then select the imported schema and ask:
 
 > Show student names with their department names, ordered by highest CGPA.
 
-QueryAI can generate SQL similar to:
+SchemaIQ can generate SQL similar to:
 
 ```sql
 SELECT s.name, d.department_name, s.cgpa
@@ -182,7 +182,7 @@ See `/docs` for the current request bodies and complete API reference.
 
 ## Project Status
 
-QueryAI supports schema import, schema-aware SQL generation, explanations, and read-only querying against a configured live PostgreSQL database.
+SchemaIQ supports schema import, schema-aware SQL generation, explanations, and read-only querying against a configured live PostgreSQL database.
 
 ## Author
 
@@ -192,4 +192,4 @@ LinkedIn: [Vikas](https://www.linkedin.com/in/vikas-e/)
 
 ---
 
-If you find QueryAI useful, consider starring the repository.
+If you find SchemaIQ useful, consider starring the repository.

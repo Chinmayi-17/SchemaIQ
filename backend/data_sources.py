@@ -20,7 +20,7 @@ import sample_records
 
 class DataSourceManager:
     """
-    Manages database connections and imported schemas for QueryAI.
+    Manages database connections and imported schemas for SchemaIQ.
     Ensures safe in-memory credential and engine handling, tenant isolation prototypes,
     schema extraction, and execution segregation between live databases and imported schemas.
     """

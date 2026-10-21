@@ -25,7 +25,7 @@ export default function ResultToolbar({
 }) {
   const handleDownloadCsv = () => {
     if (!columns || columns.length === 0 || !rows) return;
-    exportToCsv(columns, rows, "queryai-results.csv");
+    exportToCsv(columns, rows, "schemaiq-results.csv");
   };
 
   return (

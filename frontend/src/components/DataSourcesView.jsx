@@ -323,7 +323,7 @@ export default function DataSourcesView({
         </button>
         <button type="button" className={`datasource-option ${mode === "schema" ? "selected" : ""}`} onClick={() => setMode("schema")}>
           <FileCode2 size={20} />
-          <span><strong>Import your schema</strong><small>Provide your database structure so QueryAI can generate SQL for your tables.</small></span>
+          <span><strong>Import your schema</strong><small>Provide your database structure so SchemaIQ can generate SQL for your tables.</small></span>
         </button>
       </div>
 
@@ -351,7 +351,7 @@ export default function DataSourcesView({
       )}
 
       <section className="registered-sources-section">
-        <div className="ds-section-toolbar"><div className="section-title-wrap"><h3>Configured sources</h3><span className="section-subtitle">Select the source that QueryAI should use for SQL generation.</span></div><span className="source-count">{dataSources.length} sources</span></div>
+        <div className="ds-section-toolbar"><div className="section-title-wrap"><h3>Configured sources</h3><span className="section-subtitle">Select the source that SchemaIQ should use for SQL generation.</span></div><span className="source-count">{dataSources.length} sources</span></div>
         <div className="source-list">{dataSources.map((source) => <div className={`source-list-item ${source.id === activeSourceId ? "active" : ""}`} key={source.id}><button type="button" className="source-select-button" onClick={() => onSourceChange(source.id)}><span className={`source-status-dot ${source.is_live ? "live" : "schema"}`} /><span><strong>{source.name}</strong><small>{source.database_type} · {source.is_live ? source.status : "schema only"} · {source.table_count ?? 0} tables</small></span></button><div className="source-item-actions">{source.id === activeSourceId && <span className="active-label">Active</span>}{!source.is_default && <button type="button" className="icon-danger-button" onClick={() => removeSource(source)} title={`Remove ${source.name}`}><Trash2 size={14} /></button>}</div></div>)}</div>
       </section>
 

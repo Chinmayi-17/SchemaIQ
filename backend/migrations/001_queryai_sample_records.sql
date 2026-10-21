@@ -1,6 +1,6 @@
 -- Run once in the Supabase SQL editor.
 -- These application-managed tables store imported schema metadata and sample rows.
--- Uploaded CREATE TABLE statements are never executed by QueryAI.
+-- Uploaded CREATE TABLE statements are never executed by SchemaIQ.
 
 CREATE TABLE IF NOT EXISTS queryai_schema_metadata (
     schema_id VARCHAR(120) PRIMARY KEY,

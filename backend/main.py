@@ -14,7 +14,7 @@ from sql_validator import validate_sql, validate_sql_references
 import database as database_module
 import sample_records
 
-app = FastAPI(title="QueryAI API", version="2.0.0")
+app = FastAPI(title="SchemaIQ API", version="2.0.0")
 
 app.add_middleware(
     CORSMiddleware,
@@ -87,7 +87,7 @@ class RowInsertRequest(BaseModel):
 def health():
     return {
         "status": "ok",
-        "app": "QueryAI",
+        "app": "SchemaIQ",
         "version": "2.0.0",
         "active_source": data_source_manager._active_source_id,
     }
@@ -452,7 +452,7 @@ def query(request: QueryRequest):
                 status_code=400,
                 detail=(
                     "Destructive database operations are not allowed. "
-                    "QueryAI supports read-only queries only."
+                    "SchemaIQ supports read-only queries only."
                 ),
             )
 

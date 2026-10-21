@@ -38,7 +38,7 @@ export default function Sidebar({
           </svg>
         </div>
         <div className="brand-text-wrap">
-          <span className="brand-name">QueryAI</span>
+          <span className="brand-name">SchemaIQ</span>
         </div>
       </div>
 
@@ -108,7 +108,7 @@ export default function Sidebar({
         <div className="user-profile-wrap">
           <div className="user-avatar">QA</div>
           <div className="user-info">
-            <div className="user-name">QueryAI Workspace</div>
+            <div className="user-name">SchemaIQ Workspace</div>
             <div className="user-role">Developer environment</div>
           </div>
           <ChevronDown className="user-more-icon" size={15} />
