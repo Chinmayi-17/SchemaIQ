@@ -186,9 +186,9 @@ SchemaIQ supports schema import, schema-aware SQL generation, explanations, and 
 
 ## Author
 
-**H S Chinmayi**  
-GitHub: [Chinmayi-17](https://github.com/chinmayi-17)  
-LinkedIn: [H S Chinmayi](https://www.linkedin.com/in/h-s-chinmayi-523a03340)
+**Chinmayi**
+Github:Chinmayi-17
+
 ---
 
 If you find SchemaIQ useful, consider starring the repository.
